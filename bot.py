@@ -13,9 +13,7 @@ chat_messages = {}
 chat_message_counters = {}
 used_messages = {}
 reaction_counters = {}
-
-# Giveaway state per chat
-giveaway_state = {}  # {chat_id: {"active": bool, "participants": set(user_id), "message_id": int, "participant_data": {user_id: (username, name)}}}
+giveaway_state = {}
 
 REACTION_EMOJIS = ['😂', '💩', '👍', '❤️']
 
@@ -41,6 +39,18 @@ async def is_admin(context, chat_id, user_id):
     except Exception:
         return False
 
+def get_gift_number_note(gift_number: str) -> str:
+    """Return a note about the rarity or value of the gift number, if applicable."""
+    # Check for rare number (1-10)
+    if gift_number.isdigit():
+        num = int(gift_number)
+        if 1 <= num <= 10:
+            return "\n\n💎 Номер этого подарка считается редким (#1-10)"
+    # Check for all repeated digits (like 222, 11, 5555, 8888, etc)
+    if len(set(gift_number)) == 1 and len(gift_number) > 1:
+        return "\n\n💎 У данного подарка ценный номер (повторяющиеся цифры)!"
+    return ""
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text('🐒')
 
@@ -58,7 +68,6 @@ async def give(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
-    # If already active, can't start a new one
     if state.get("active", False):
         await message.reply_text(
             '<b>Невозможно запустить раздачу</b> пока запущена другая!',
@@ -66,7 +75,6 @@ async def give(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
-    # Start new giveaway
     giveaway_state[chat_id] = {
         "active": True,
         "participants": set(),
@@ -90,7 +98,6 @@ async def end(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     admin = await is_admin(context, chat_id, user.id)
     state = giveaway_state.get(chat_id)
     if not admin:
-        # Try delete, ignore if already deleted
         try:
             await message.delete()
         except Exception:
@@ -135,16 +142,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     # == Giveaway logic ==
     state = giveaway_state.get(chat_id)
     if state and state.get("active", False):
-        # Not from bot, not command, and not already joined
         if not user.is_bot and not (text and text.startswith('/')):
-            # Check if user is admin: admins do not participate
             is_user_admin = await is_admin(context, chat_id, user.id)
             if is_user_admin:
                 pass  # Do not add admin to giveaway
             elif user.id not in state["participants"]:
                 state["participants"].add(user.id)
                 state["participant_data"][user.id] = (user.username, user.full_name)
-                # Edit giveaway message with new count
                 participants_count = len(state["participants"])
                 msg_id = state.get("message_id")
                 text_to_edit = (
@@ -217,7 +221,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         nft_url = match.group(0)
         gift_name = match.group(2)
         gift_number = match.group(3)
-        response_text = f'<a href="{nft_url}">🎁</a> {gift_name} #{gift_number}'
+        note = get_gift_number_note(gift_number)
+        response_text = f'<a href="{nft_url}">🎁</a> {gift_name} #{gift_number}{note}'
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("Посмотреть 🎁", url=nft_url)],
             [InlineKeyboardButton("Продать подарки", url="https://t.me/tonnel_network_bot/gifts?startapp=ref_1267171169")]
