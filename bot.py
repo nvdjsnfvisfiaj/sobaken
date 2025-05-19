@@ -164,7 +164,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
 
 def main() -> None:
-    application = ApplicationBuilder().token("YOUR_TOKEN_HERE").build()
+    application = ApplicationBuilder().token("7998421928:AAHXo33u_YD-aLJp7MxGCTWpGqOgK0BzR8U").build()
     application.add_handler(CommandHandler("give", give))
     application.add_handler(CommandHandler("end", end))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
